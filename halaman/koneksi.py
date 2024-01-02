@@ -6,8 +6,8 @@ def create_connection():
     try:
         db_config = {
             "host": "localhost",
-            "user": "mfajarjati",
-            "password": "1w3r5y7i",
+            "user": "",
+            "password": "",
             "database": "posyandu_db",
         }
         connection = mysql.connector.connect(**db_config)
