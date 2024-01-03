@@ -25,8 +25,14 @@ def show():
     save_display = cursor.fetchall()
     # st.markdown("")
     st.subheader("Data :green[Tabel Ibu] saat ini !")
+    modified_data = []
+    for row in save_display:
+        modified_row = list(row)
+        # Modifying the 'ID Admin' column
+        modified_row[0] = f"MRS-{modified_row[0]}"
+        modified_data.append(modified_row)
     df = pd.DataFrame(
-        save_display,
+        modified_data,
         columns=[
             "ID Ibu",
             "Nama",
