@@ -21,8 +21,15 @@ def show():
     save_display = cursor.fetchall()
     # st.markdown("")
     st.subheader("Data :blue[Tabel Admin] saat ini !")
+    modified_data = []
+    for row in save_display:
+        modified_row = list(row)
+        # Modifying the 'ID Admin' column
+        modified_row[0] = f"ADM-{modified_row[0]}"
+        modified_data.append(modified_row)
+
     df = pd.DataFrame(
-        save_display,
+        modified_data,
         columns=["ID Admin", "Nama", "Username", "Password"],
     )
     df.set_index("ID Admin", inplace=True)
@@ -67,9 +74,7 @@ def update():
     id_options = [f"{result[0]} - {result[1]}" for result in id_data]
 
     st.subheader("Silahkan pilih :blue[Nama Admin] yang akan di-update !")
-    select_id = st.selectbox(
-        "Nama Admin: ", id_options, format_func=lambda x: x.split(" - ")[1]
-    )
+    select_id = st.selectbox("Nama Admin: ", id_options)
 
     # Mendapatkan hanya id_admin dari opsi yang dipilih
     selected_admin_id = int(select_id.split(" - ")[0]) if select_id else None
