@@ -1,9 +1,55 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import pdfkit
 from halaman.koneksi import create_connection
 
 connection, cursor = create_connection()
+
+
+# Konfigurasi PDF kit
+config = pdfkit.configuration(
+    wkhtmltopdf="C://Program Files//wkhtmltopdf//bin//wkhtmltopdf.exe"
+)
+bootstrap_stylesheet = (
+    "https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+)
+
+
+def save_to_pdf(html_content):
+    # Tambahkan stylesheet Bootstrap ke dalam HTML content
+    html_with_bootstrap = f"""
+    <html>
+        <head>
+            <link rel="stylesheet" href="{bootstrap_stylesheet}">
+            <style>
+                .text-center {{
+                    text-align: center;
+                }}
+                .bold {{
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <h3 class="text-center bold">Laporan Hasil Pemeriksaan</h3>
+            {html_content}
+        </body>
+    </html>
+    """
+
+    options = {
+        "page-size": "A4",
+        "margin-top": "0.75in",
+        "margin-right": "0.75in",
+        "margin-bottom": "0.75in",
+        "margin-left": "0.75in",
+    }
+    pdf_file = "tabel_pemeriksaan.pdf"
+    pdfkit.from_string(
+        html_with_bootstrap, pdf_file, options=options, configuration=config
+    )
+    return pdf_file
 
 
 # @st.cache_data
@@ -26,11 +72,9 @@ def show():
     """
     cursor.execute(display_query)
     save_display = cursor.fetchall()
-    st.subheader("Data :gray[Tabel Pemeriksaan] saat ini !")
     modified_data = []
     for row in save_display:
         modified_row = list(row)
-        # Modifying the 'ID Admin' column
         modified_row[0] = f"HSL-{modified_row[0]}"
         modified_data.append(modified_row)
     df = pd.DataFrame(
@@ -48,7 +92,94 @@ def show():
         ],
     )
     df.set_index("ID Periksa", inplace=True)
-    st.dataframe(df, use_container_width=True)
+
+    awal = datetime.date(1900, 1, 1)
+    akhir = datetime.date(2025, 1, 1)
+    st.subheader("Pilih :gray[filter untuk ditampilkan]")
+    with st.expander("Filter Baris dan Rentang Waktu"):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Pilih :gray[baris untuk ditampilkan]")
+            hasil_anak = st.multiselect(
+                "filter hasil anak",
+                options=df["Hasil Anak"].unique(),
+                default=df["Hasil Anak"].unique(),
+            )
+
+            hasil_ibu = st.multiselect(
+                "filter hasil ibu",
+                options=df["Hasil Ibu"].unique(),
+                default=df["Hasil Ibu"].unique(),
+            )
+
+            nama_cabang = st.multiselect(
+                "filter nama Cabang",
+                options=df["Nama Cabang"].unique(),
+                default=df["Nama Cabang"].unique(),
+            )
+
+            nama_pemeriksa = st.multiselect(
+                "filter nama Pemeriksa",
+                options=df["Pemeriksa"].unique(),
+                default=df["Pemeriksa"].unique(),
+            )
+
+        with col2:
+            st.subheader("Pilih :gray[Rentang Waktu]")
+            start_date = st.date_input(
+                "Tanggal Awal",
+                value=None,
+                min_value=(awal),
+                max_value=(akhir),
+            )
+            end_date = st.date_input(
+                "Tanggal Akhir", value=None, min_value=(awal), max_value=(akhir)
+            )
+
+    # Filter berdasarkan waktu
+    if start_date and end_date:
+        df_filtered = df[(df["Waktu"] >= start_date) & (df["Waktu"] <= end_date)]
+    else:
+        df_filtered = df.copy()
+
+    # Filter berdasarkan kondisi yang dipilih
+    filter_condition = (
+        df_filtered["Hasil Anak"].isin(hasil_anak)
+        & df_filtered["Hasil Ibu"].isin(hasil_ibu)
+        & df_filtered["Nama Cabang"].isin(nama_cabang)
+        & df_filtered["Pemeriksa"].isin(nama_pemeriksa)
+    )
+
+    df_filtered = df_filtered[filter_condition]
+    selected_columns = df.columns.tolist()
+    with st.expander("Filter Kolom"):
+        st.subheader("Pilih :gray[Kolom untuk ditampilkan]")
+        if not df_filtered.empty:
+            selected_columns = st.multiselect(
+                "Pilih kolom:",
+                df_filtered.columns.tolist(),
+                default=selected_columns,
+            )
+    st.subheader("Data :gray[Tabel Pemeriksaan] saat ini !")
+    st.dataframe(df_filtered[selected_columns], use_container_width=True)
+
+    if set(selected_columns).issubset(df_filtered.columns):
+        if st.button("Simpan ke PDF"):
+            html_content = df_filtered[selected_columns].to_html(
+                index=False,
+                justify="left",
+                classes="table table-bordered table-striped table-hover",
+            )
+            pdf_file = save_to_pdf(
+                html_content
+            )  # Anda perlu mengimplementasikan fungsi ini
+            with open(pdf_file, "rb") as file:
+                st.download_button(
+                    label="Download PDF",
+                    data=file.read(),
+                    file_name=pdf_file,
+                    mime="application/pdf",
+                )
 
 
 def insert():
@@ -164,12 +295,13 @@ def update():
     cursor.execute(command)
     id_data = cursor.fetchall()
 
-    # Membuat daftar opsi dengan format 'id_pemeriksa - tgl - nama_anak - nama_ibu'
-    # Membuat daftar opsi hanya dengan 'id_pemeriksa'
-    id_options = [result[0] for result in id_data]
+    id_options = [f"HSL-{result[0]}" for result in id_data]
 
     st.subheader("Silahkan pilih :gray[Data Pemeriksaan] yang akan di-update !")
+    # Menghapus awalan 'HSL-' dari select_id
     select_id = st.selectbox("ID Pemeriksaan: ", id_options)
+
+    select_id = select_id.replace("HSL-", "") if select_id else None
 
     # Mendapatkan hanya id_periksa dari opsi yang dipilih
     selected_periksa_id = select_id if select_id else None
@@ -292,10 +424,14 @@ def delete():
     cursor.execute(command)
     id_data = cursor.fetchall()
     # Membuat daftar opsi hanya dengan 'id_pemeriksa'
-    id_options = [result[0] for result in id_data]
+    save_display = cursor.fetchall()
+
+    id_options = [f"HSL-{result[0]}" for result in id_data]
 
     st.subheader("Silahkan pilih :gray[Data Pemeriksaan] yang akan di-update !")
     select_id = st.selectbox("ID Pemeriksaan: ", id_options)
+    # Menghapus awalan 'HSL-' dari select_id
+    select_id = select_id.replace("HSL-", "") if select_id else None
 
     # Mendapatkan hanya id_periksa dari opsi yang dipilih
     selected_periksa_id = select_id if select_id else None
@@ -321,9 +457,14 @@ def delete():
     """
         cursor.execute(display_query, (selected_periksa_id,))
         save_display = cursor.fetchall()
+        modified_data = []
+        for row in save_display:
+            modified_row = list(row)
+            modified_row[0] = f"HSL-{modified_row[0]}"
+            modified_data.append(modified_row)
         st.markdown("Data Pemeriksaan :")
         df = pd.DataFrame(
-            save_display,
+            modified_data,
             columns=[
                 "ID Periksa",
                 "Waktu",
