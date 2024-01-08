@@ -33,11 +33,9 @@ pages_dict = {
     "Tabel Biodata Anak": "anak.py",
     "Tabel Data Cabang": "cabang.py",
     "Tabel Hasil Pemeriksaan": "pemeriksaan.py",
-    # Tambahkan pemetaan untuk tabel lainnya
 }
 
 # Judul atau navigasi untuk memilih halaman
-
 if __name__ == "__main__":
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False
@@ -50,6 +48,7 @@ if __name__ == "__main__":
             st.rerun()
 
     if st.session_state.logged_in:
+        st.sidebar.image("logo.png", use_column_width=True)
         selected_page = st.sidebar.selectbox(
             "Silahkan Pilih :", list(pages_dict.keys())
         )
