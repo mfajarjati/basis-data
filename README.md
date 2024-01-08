@@ -4,7 +4,7 @@
 - importlib.util
 - time
 - pdfkit
-- pandas as pd
+- pandas
 - datetime
 - mysql.connector
 
@@ -12,6 +12,7 @@
 - https://wkhtmltopdf.org/downloads.html
 
 # how to run
+- run xampp
 - put everything in 1 folder
 - open terminal
 - move to the directory where dashboard.py is located
