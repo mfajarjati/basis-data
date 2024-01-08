@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import importlib.util
+from streamlit_option_menu import option_menu
 from pagelogin import *
 from halaman import *
 import time
@@ -25,16 +26,6 @@ def intro(user_id):
     )
 
 
-pages_dict = {
-    "Dashboard": "dashboard.py",
-    "Tabel Admin": "admin.py",
-    "Tabel Biodata Pemeriksa": "pemeriksa.py",
-    "Tabel Biodata Ibu": "ibu.py",
-    "Tabel Biodata Anak": "anak.py",
-    "Tabel Data Cabang": "cabang.py",
-    "Tabel Hasil Pemeriksaan": "pemeriksaan.py",
-}
-
 # Judul atau navigasi untuk memilih halaman
 if __name__ == "__main__":
     if "logged_in" not in st.session_state:
@@ -48,22 +39,107 @@ if __name__ == "__main__":
             st.rerun()
 
     if st.session_state.logged_in:
-        st.sidebar.image("logo.png", use_column_width=True)
-        selected_page = st.sidebar.selectbox(
-            "Silahkan Pilih :", list(pages_dict.keys())
-        )
-        if selected_page != "Dashboard":
-            unique_key = f"{selected_page}_selectbox"
-            module_path = f"halaman.{pages_dict[selected_page]}"
+        with st.sidebar:
+            st.sidebar.image(
+                "logo.png",
+                width=50,
+                use_column_width=True,
+            )
+            pages_dict = option_menu(
+                menu_title="Main Menu",
+                options=[
+                    "Dashboard",
+                    "Tabel Admin",
+                    "Tabel Biodata Pemeriksa",
+                    "Tabel Biodata Ibu",
+                    "Tabel Biodata Anak",
+                    "Tabel Data Cabang",
+                    "Tabel Hasil Pemeriksaan",
+                ],
+                icons=[
+                    "caret-right-fill",
+                    "caret-right-fill",
+                    "caret-right-fill",
+                    "caret-right-fill",
+                    "caret-right-fill",
+                    "caret-right-fill",
+                    "caret-right-fill",
+                ],
+                menu_icon="house",
+                default_index=0,
+                styles={
+                    "icon": {"color": "white", "font-size": "13px"},
+                    "nav-link": {
+                        "font-size": "13px",
+                        "text-align": "left",
+                        "margin": "0px",
+                        "--hover-color": "#666",
+                        "font-family": "'Arial', sans-serif",
+                    },
+                    "menu-title": {
+                        "font-size": "16px",
+                    },
+                },
+            )
+        selected_page = pages_dict
+
+        # Memeriksa jika pilihan adalah "Tabel Admin"
+        if selected_page == "Tabel Admin":
+            module_path = f"halaman.admin"  # Hapus ekstensi .py
             spec = importlib.util.spec_from_file_location(
-                pages_dict[selected_page],
-                os.path.join("halaman", pages_dict[selected_page]),
+                "admin",  # Ganti 'pages_dict[pages_dict]' dengan nama modul yang benar
+                os.path.join("halaman", "admin.py"),
+            )
+            selected_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(selected_module)
+            selected_module.main()
+        elif selected_page == "Tabel Biodata Pemeriksa":
+            module_path = f"halaman.pemeriksa"  # Hapus ekstensi .py
+            spec = importlib.util.spec_from_file_location(
+                "admin",  # Ganti 'pages_dict[pages_dict]' dengan nama modul yang benar
+                os.path.join("halaman", "pemeriksa.py"),
+            )
+            selected_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(selected_module)
+            selected_module.main()
+        elif selected_page == "Tabel Biodata Ibu":
+            module_path = f"halaman.ibu"  # Hapus ekstensi .py
+            spec = importlib.util.spec_from_file_location(
+                "admin",  # Ganti 'pages_dict[pages_dict]' dengan nama modul yang benar
+                os.path.join("halaman", "ibu.py"),
+            )
+            selected_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(selected_module)
+            selected_module.main()
+        elif selected_page == "Tabel Biodata Anak":
+            module_path = f"halaman.anak"  # Hapus ekstensi .py
+            spec = importlib.util.spec_from_file_location(
+                "admin",  # Ganti 'pages_dict[pages_dict]' dengan nama modul yang benar
+                os.path.join("halaman", "anak.py"),
+            )
+            selected_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(selected_module)
+            selected_module.main()
+        elif selected_page == "Tabel Data Cabang":
+            module_path = f"halaman.cabang"  # Hapus ekstensi .py
+            spec = importlib.util.spec_from_file_location(
+                "admin",  # Ganti 'pages_dict[pages_dict]' dengan nama modul yang benar
+                os.path.join("halaman", "cabang.py"),
+            )
+            selected_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(selected_module)
+            selected_module.main()
+        elif selected_page == "Tabel Hasil Pemeriksaan":
+            module_path = f"halaman.pemeriksaan"  # Hapus ekstensi .py
+            spec = importlib.util.spec_from_file_location(
+                "admin",  # Ganti 'pages_dict[pages_dict]' dengan nama modul yang benar
+                os.path.join("halaman", "pemeriksaan.py"),
             )
             selected_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(selected_module)
             selected_module.main()
 
-        elif selected_page == "Dashboard":
+        elif pages_dict == "Dashboard":
             intro(None)  # No need for user_id here
 
     if st.session_state.logged_in and st.sidebar.button("Log Out"):
