@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import pdfkit
+from streamlit_option_menu import option_menu
 from halaman.koneksi import create_connection
 
 connection, cursor = create_connection()
@@ -492,8 +493,21 @@ def delete():
 def main():
     st.title("Dashboard :gray[Tabel Pemeriksaan] 📋")
     st.header("", divider="rainbow")
-    page = st.sidebar.selectbox(
-        "Menu : ", ["DISPLAY", "INSERT", "UPDATE", "DELETE"], key="pemeriksaan_key"
+    page = option_menu(
+        menu_title=None,
+        options=["DISPLAY", "INSERT", "UPDATE", "DELETE"],
+        default_index=0,
+        orientation="horizontal",
+        icons=["eye", "pencil-square", "arrow-repeat", "trash"],
+        styles={
+            "icon": {"color": "white", "font-size": "12px"},
+            "nav-link": {
+                "font-size": "12px",
+                "text-align": "center",
+                "margin": "0px",
+                "--hover-color": "#666",
+            },
+        },
     )
 
     if page == "DISPLAY":
