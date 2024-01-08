@@ -1,16 +1,58 @@
 import streamlit as st
 import pandas as pd
-from halaman.koneksi import create_connection
 import datetime
+import pdfkit
+from halaman.koneksi import create_connection
 
 connection, cursor = create_connection()
+
+# Konfigurasi PDF kit
+config = pdfkit.configuration(
+    wkhtmltopdf="C://Program Files//wkhtmltopdf//bin//wkhtmltopdf.exe"
+)
+bootstrap_stylesheet = (
+    "https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+)
+
+
+def save_to_pdf(html_content):
+    # Tambahkan stylesheet Bootstrap ke dalam HTML content
+    html_with_bootstrap = f"""
+    <html>
+        <head>
+            <link rel="stylesheet" href="{bootstrap_stylesheet}">
+            <style>
+                .text-center {{
+                    text-align: center;
+                }}
+                .bold {{
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <h3 class="text-center bold">Laporan Data Ibu</h3>
+            {html_content}
+        </body>
+    </html>
+    """
+
+    options = {
+        "page-size": "A4",
+        "margin-top": "0.75in",
+        "margin-right": "0.75in",
+        "margin-bottom": "0.75in",
+        "margin-left": "0.75in",
+    }
+    pdf_file = "tabel_ibu.pdf"
+    pdfkit.from_string(
+        html_with_bootstrap, pdf_file, options=options, configuration=config
+    )
+    return pdf_file
 
 
 # @st.cache_data
 def show():
-    import pandas as pd
-    import streamlit as st
-
     display_query = """
         SELECT id_ibu as "ID Ibu",
         nama as Nama,
@@ -24,7 +66,7 @@ def show():
     cursor.execute(display_query)
     save_display = cursor.fetchall()
     # st.markdown("")
-    st.subheader("Data :green[Tabel Ibu] saat ini !")
+
     modified_data = []
     for row in save_display:
         modified_row = list(row)
@@ -44,7 +86,68 @@ def show():
         ],
     )
     df.set_index("ID Ibu", inplace=True)
-    st.dataframe(df, use_container_width=True)
+    st.subheader("Silahkan pilih :green[Filter] :")
+    with st.expander("Filter Baris "):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Pilih :green[baris untuk ditampilkan]")
+            tempat_lahir = st.multiselect(
+                "filter tempat Lahir",
+                options=df["Tempat Lahir"].unique(),
+                default=df["Tempat Lahir"].unique(),
+            )
+        with col2:
+            awal = datetime.date(1900, 1, 1)
+            akhir = datetime.date(2025, 1, 1)
+            st.subheader("Pilih :green[Rentang Tanggal Lahir]")
+            start_date = st.date_input(
+                "Tanggal Awal",
+                value=None,
+                min_value=(awal),
+                max_value=(akhir),
+            )
+            end_date = st.date_input(
+                "Tanggal Akhir", value=None, min_value=(awal), max_value=(akhir)
+            )
+
+    if start_date and end_date:
+        df_filtered = df[
+            (df["Tanggal Lahir"] >= start_date) & (df["Tanggal Lahir"] <= end_date)
+        ]
+    else:
+        df_filtered = df.copy()
+    filter_condition = df_filtered["Tempat Lahir"].isin(tempat_lahir)
+    df_filtered = df_filtered[filter_condition]
+    selected_columns = df.columns.tolist()
+
+    with st.expander("Filter Kolom"):
+        st.subheader("Pilih :green[kolom untuk ditampilkan]")
+        if not df_filtered.empty:
+            selected_columns = st.multiselect(
+                "Pilih kolom:",
+                df_filtered.columns.tolist(),
+                default=selected_columns,
+            )
+    st.subheader("Data :green[Tabel Ibu] saat ini !")
+    st.dataframe(df_filtered[selected_columns], use_container_width=True)
+
+    if set(selected_columns).issubset(df_filtered.columns):
+        if st.button("Simpan ke PDF"):
+            html_content = df_filtered[selected_columns].to_html(
+                index=False,
+                justify="left",
+                classes="table table-bordered table-striped table-hover",
+            )
+            pdf_file = save_to_pdf(
+                html_content
+            )  # Anda perlu mengimplementasikan fungsi ini
+            with open(pdf_file, "rb") as file:
+                st.download_button(
+                    label="Download PDF",
+                    data=file.read(),
+                    file_name=pdf_file,
+                    mime="application/pdf",
+                )
 
 
 def insert():
@@ -221,9 +324,15 @@ def delete():
         """
         cursor.execute(display_query, (selected_ibu_id,))
         save_display = cursor.fetchall()
+        modified_data = []
+        for row in save_display:
+            modified_row = list(row)
+            # Modifying the 'ID Admin' column
+            modified_row[0] = f"MRS-{modified_row[0]}"
+            modified_data.append(modified_row)
 
         df = pd.DataFrame(
-            save_display,
+            modified_data,
             columns=[
                 "ID Ibu",
                 "Nama",
