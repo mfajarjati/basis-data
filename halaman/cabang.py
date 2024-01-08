@@ -1,8 +1,53 @@
 import streamlit as st
 import pandas as pd
+import pdfkit
 from halaman.koneksi import create_connection
 
 connection, cursor = create_connection()
+
+# Konfigurasi PDF kit
+config = pdfkit.configuration(
+    wkhtmltopdf="C://Program Files//wkhtmltopdf//bin//wkhtmltopdf.exe"
+)
+bootstrap_stylesheet = (
+    "https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+)
+
+
+def save_to_pdf(html_content):
+    # Tambahkan stylesheet Bootstrap ke dalam HTML content
+    html_with_bootstrap = f"""
+    <html>
+        <head>
+            <link rel="stylesheet" href="{bootstrap_stylesheet}">
+            <style>
+                .text-center {{
+                    text-align: center;
+                }}
+                .bold {{
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <h3 class="text-center bold">Laporan Cabang Posyandu</h3>
+            {html_content}
+        </body>
+    </html>
+    """
+
+    options = {
+        "page-size": "A4",
+        "margin-top": "0.75in",
+        "margin-right": "0.75in",
+        "margin-bottom": "0.75in",
+        "margin-left": "0.75in",
+    }
+    pdf_file = "tabel_cabang.pdf"
+    pdfkit.from_string(
+        html_with_bootstrap, pdf_file, options=options, configuration=config
+    )
+    return pdf_file
 
 
 # @st.cache_data
@@ -18,7 +63,6 @@ def show():
     cursor.execute(display_query)
     save_display = cursor.fetchall()
     # st.markdown("")
-    st.subheader("Data :red[Tabel Cabang] saat ini !")
     modified_data = []
     for row in save_display:
         modified_row = list(row)
@@ -30,7 +74,33 @@ def show():
         columns=["ID Cabang", "Nama Cabang", "Nama Owner", "Telepon", "Alamat"],
     )
     df.set_index("ID Cabang", inplace=True)
-    st.dataframe(df, use_container_width=True)
+    st.subheader("Silahkan pilih :red[Filter] :")
+    with st.expander("Filter Kolom"):
+        if not df.empty:
+            selected_columns = st.multiselect(
+                "Pilih kolom:",
+                df.columns.tolist(),
+                default=df.columns.tolist(),
+            )
+    st.subheader("Data :red[Tabel Cabang] saat ini !")
+    st.dataframe(df[selected_columns], use_container_width=True)
+    if set(selected_columns).issubset(df.columns):
+        if st.button("Simpan ke PDF"):
+            html_content = df[selected_columns].to_html(
+                index=False,
+                justify="left",
+                classes="table table-bordered table-striped table-hover",
+            )
+            pdf_file = save_to_pdf(
+                html_content
+            )  # Anda perlu mengimplementasikan fungsi ini
+            with open(pdf_file, "rb") as file:
+                st.download_button(
+                    label="Download PDF",
+                    data=file.read(),
+                    file_name=pdf_file,
+                    mime="application/pdf",
+                )
 
 
 def insert():
@@ -145,8 +215,14 @@ def delete():
         cursor.execute(display_query, (selected_cabang_id,))
         save_display = cursor.fetchall()
 
+        modified_data = []
+        for row in save_display:
+            modified_row = list(row)
+            # Modifying the 'ID Admin' column
+            modified_row[0] = f"CBG-{modified_row[0]}"
+            modified_data.append(modified_row)
         df = pd.DataFrame(
-            save_display,
+            modified_data,
             columns=["ID Cabang", "Nama Cabang", "Nama Owner", "Telepon", "Alamat"],
         )
         df.set_index("ID Cabang", inplace=True)
