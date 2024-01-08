@@ -1,8 +1,53 @@
 import streamlit as st
 import pandas as pd
+import pdfkit
 from halaman.koneksi import create_connection
 
 connection, cursor = create_connection()
+
+# Konfigurasi PDF kit
+config = pdfkit.configuration(
+    wkhtmltopdf="C://Program Files//wkhtmltopdf//bin//wkhtmltopdf.exe"
+)
+bootstrap_stylesheet = (
+    "https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+)
+
+
+def save_to_pdf(html_content):
+    # Tambahkan stylesheet Bootstrap ke dalam HTML content
+    html_with_bootstrap = f"""
+    <html>
+        <head>
+            <link rel="stylesheet" href="{bootstrap_stylesheet}">
+            <style>
+                .text-center {{
+                    text-align: center;
+                }}
+                .bold {{
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <h3 class="text-center bold">Laporan Data Pemeriksa Posyandu</h3>
+            {html_content}
+        </body>
+    </html>
+    """
+
+    options = {
+        "page-size": "A4",
+        "margin-top": "0.75in",
+        "margin-right": "0.75in",
+        "margin-bottom": "0.75in",
+        "margin-left": "0.75in",
+    }
+    pdf_file = "tabel_pemeriksa.pdf"
+    pdfkit.from_string(
+        html_with_bootstrap, pdf_file, options=options, configuration=config
+    )
+    return pdf_file
 
 
 # @st.cache_data
@@ -19,9 +64,6 @@ def show():
     cursor.execute(display_query)
     save_display = cursor.fetchall()
     # st.markdown("")
-    st.subheader(
-        "Data :violet[Tabel Pemeriksa] saat ini !",
-    )
     modified_data = []
     for row in save_display:
         modified_row = list(row)
@@ -47,7 +89,59 @@ def show():
         ],
     )
     df.set_index("ID Pemeriksa", inplace=True)
-    st.dataframe(df, use_container_width=True)
+    st.subheader(
+        "Silahkan Pilih :violet[Filter] :",
+    )
+    with st.expander("Filter Baris "):
+        st.subheader("Pilih :violet[baris untuk ditampilkan]")
+        jk_pemeriksa = st.multiselect(
+            "filter jenis Kelamin",
+            options=df["Jenis Kelamin"].unique(),
+            default=df["Jenis Kelamin"].unique(),
+        )
+
+        jabatan_ = st.multiselect(
+            "filter Jabatan",
+            options=df["Jabatan"].unique(),
+            default=df["Jabatan"].unique(),
+        )
+
+    df_filtered = df.copy()
+    filter_condition = df_filtered["Jenis Kelamin"].isin(jk_pemeriksa) & df_filtered[
+        "Jabatan"
+    ].isin(jabatan_)
+    df_filtered = df_filtered[filter_condition]
+
+    with st.expander("Filter Kolom"):
+        st.subheader("Pilih :violet[kolom untuk ditampilkan]")
+        if not df.empty:
+            selected_columns = st.multiselect(
+                "Pilih kolom:",
+                df.columns.tolist(),
+                default=df.columns.tolist(),
+            )
+    st.subheader(
+        "Data :violet[Tabel Pemeriksa] saat ini !",
+    )
+    st.dataframe(df_filtered[selected_columns], use_container_width=True)
+
+    if set(selected_columns).issubset(df.columns):
+        if st.button("Simpan ke PDF"):
+            html_content = df_filtered[selected_columns].to_html(
+                index=False,
+                justify="left",
+                classes="table table-bordered table-striped table-hover",
+            )
+            pdf_file = save_to_pdf(
+                html_content
+            )  # Anda perlu mengimplementasikan fungsi ini
+            with open(pdf_file, "rb") as file:
+                st.download_button(
+                    label="Download PDF",
+                    data=file.read(),
+                    file_name=pdf_file,
+                    mime="application/pdf",
+                )
 
 
 def insert():
@@ -172,10 +266,23 @@ def delete():
         """
         cursor.execute(display_query, (selected_pemeriksa_id,))
         save_display = cursor.fetchall()
+        modified_data = []
+        for row in save_display:
+            modified_row = list(row)
+            # Modifying the 'ID Admin' column
+            if modified_row[2] == "perawat":
+                modified_row[0] = f"PRW-{modified_row[0]}"
+                modified_data.append(modified_row)
+            elif modified_row[2] == "dokter":
+                modified_row[0] = f"DOK-{modified_row[0]}"
+                modified_data.append(modified_row)
+            elif modified_row[2] == "bidan":
+                modified_row[0] = f"BDN-{modified_row[0]}"
+                modified_data.append(modified_row)
 
         if len(save_display) > 0:
             df = pd.DataFrame(
-                save_display,
+                modified_data,
                 columns=[
                     "ID Pemeriksa",
                     "Nama Pemeriksa",
@@ -203,7 +310,7 @@ def delete():
 
 
 def main():
-    st.title("Dashboard :violet[Tabel Pemeriksa] 🏢")
+    st.title("Dashboard :violet[Tabel Pemeriksa] 👩🏻‍⚕️")
     st.header("", divider="rainbow")
     page = st.sidebar.selectbox(
         "Menu :",
